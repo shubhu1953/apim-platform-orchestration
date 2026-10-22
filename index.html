@@ -138,6 +138,7 @@
     <nav aria-label="Diagrams">
       <a href="#big-picture">Big picture</a>
       <a href="#delivery">Build order</a>
+      <a href="#dev-environment">Dev environment</a>
       <a href="#identity">No passwords</a>
       <a href="#governance">Access</a>
       <a href="#apixp">Front door</a>
@@ -214,9 +215,86 @@ flowchart LR
     </div>
   </section>
 
+  <!-- dev environment -->
+  <section id="dev-environment">
+    <div class="head"><span class="step">View 3</span><h2>Everything in one environment: dev</h2></div>
+    <p class="oneliner">One environment is two Azure subscriptions, eight new resource groups and about fifty Azure resources, all private and all built from the same blueprints.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+flowchart TB
+  subgraph APX["apixp subscription · front door · dev"]
+    direction TB
+    subgraph AXN["prh-rg-apixp-dev-network-uks-001 · already exists"]
+      AV["VNet prh-vnet-apixp-dev-uks-001&lt;br/&gt;already exists"]
+      AS["4 subnets: apim · private-endpoints&lt;br/&gt;functionapp · logicapp&lt;br/&gt;4 NSGs · APIM route table"]
+    end
+    subgraph AXM["prh-rg-apixp-dev-apimgmt-uks-001"]
+      APIM["API Management · Developer tier&lt;br/&gt;prh-apim-apixp-dev-uks-001&lt;br/&gt;+ public IP + identity"]
+      APIC["API Center&lt;br/&gt;prh-apic-apixp-dev-uks-001"]
+      APIS["Inside APIM: 3 APIs · 3 MCP servers · 7 tools&lt;br/&gt;5 products · policies"]
+    end
+    subgraph AXS["prh-rg-apixp-dev-sharedsvcs-uks-001"]
+      AKV["Key Vault&lt;br/&gt;prh-kv-apixp-dev-001"]
+      ACS["App Configuration ×2&lt;br/&gt;routing · genericapis"]
+    end
+    subgraph AXU["prh-rg-apixp-dev-utils-uks-001"]
+      UF["common-utils Function App&lt;br/&gt;+ App Service Plan P0v3 + identity"]
+      UST["Storage prhstapxutilsdev001&lt;br/&gt;SubscriberRouting table"]
+    end
+    subgraph AXO["prh-rg-apixp-dev-observability-uks-001"]
+      ALAW["Log Analytics + App Insights"]
+      AAG["Action group + 3 alerts&lt;br/&gt;+ KQL reader identity"]
+    end
+  end
+  subgraph INT["intapp subscription · workshop · dev"]
+    direction TB
+    subgraph INN["prh-rg-intapp-dev-network-uks-001 · already exists"]
+      IV["VNet prh-vnet-intapp-dev-uks-001&lt;br/&gt;already exists"]
+      ISN["4 subnets: product · orders&lt;br/&gt;logistics · private-endpoints&lt;br/&gt;4 NSGs · shared route table"]
+      DNS["11 private DNS zones"]
+    end
+    subgraph INS["prh-rg-intapp-dev-sharedsvcs-uks-001"]
+      IKV["Key Vault&lt;br/&gt;prh-kv-intapp-dev-001"]
+      ILAW["Log Analytics + App Insights"]
+      SB["Service Bus Premium&lt;br/&gt;prh-sbns-intapp-dev-uks-001&lt;br/&gt;3 topics · 1 queue · 12 subscriptions"]
+    end
+    subgraph IPR["prh-rg-intapp-dev-product-uks-001"]
+      PF["Product Function App&lt;br/&gt;+ plan P0v3 + storage"]
+    end
+    subgraph IOR["prh-rg-intapp-dev-orders-uks-001"]
+      OF["Orders Function App&lt;br/&gt;+ plan P0v3 + storage"]
+    end
+    subgraph ILG["prh-rg-intapp-dev-logistics-uks-001"]
+      LF["Logistics Function App&lt;br/&gt;+ plan P0v3 + storage"]
+    end
+  end
+  AV <-. "VNet peering" .-> IV
+  APIM -- "private calls" --> PF
+  APIM -- "private calls" --> OF
+  APIM -- "private calls" --> LF
+  PF <-- "events" --> SB
+  OF <-- "events" --> SB
+  LF <-- "events" --> SB
+</pre></div>
+      <div class="notes">
+        <h3>In plain words</h3>
+        <ul>
+          <li><b>8 new resource groups</b> (4 in each subscription). The two network groups and their VNets already exist and belong to the network team.</li>
+          <li><b>Front door (apixp):</b> API Management, the API Center catalogue, a Key Vault, 2 App Configuration stores, 1 utility Function App with its storage, plus monitoring and alerts.</li>
+          <li><b>Workshop (intapp):</b> a Key Vault, monitoring, the Service Bus (3 topics, 1 queue, 12 subscriptions) and 3 business Function Apps, each with its own plan and storage.</li>
+          <li><b>Networking:</b> 8 subnets, each with its own firewall rules (NSG), 2 route tables, 11 private DNS zones and 15 private endpoints, so nothing is reachable from the internet except the front door.</li>
+          <li><b>Inside the front door:</b> 3 APIs and 3 MCP servers with 7 read-only tools for AI assistants, all listed in API Center.</li>
+          <li><b>Behind the scenes (governance):</b> 5 deployment identities for dev with their permissions, and a "dev" environment in each of the 5 GitHub projects.</li>
+        </ul>
+        <div class="ask"><q>How is production different from dev?</q>
+          <p>Same shape, bigger sizes: API Management Premium spread across 3 availability zones, larger plans (P1v3), more Service Bus capacity, zone-redundant storage, and every release needs a reviewer's approval.</p></div>
+      </div>
+    </div>
+  </section>
+
   <!-- 3 -->
   <section id="identity">
-    <div class="head"><span class="step">View 3</span><h2>Automation with no passwords</h2></div>
+    <div class="head"><span class="step">View 4</span><h2>Automation with no passwords</h2></div>
     <p class="oneliner">Our automation has no stored passwords. It proves who it is each time and only gets the keys for one job.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
@@ -248,7 +326,7 @@ sequenceDiagram
 
   <!-- 4 -->
   <section id="governance">
-    <div class="head"><span class="step">View 4</span><h2>Access: the minimum, and only when needed</h2></div>
+    <div class="head"><span class="step">View 5</span><h2>Access: the minimum, and only when needed</h2></div>
     <p class="oneliner">Everyone, people and automation, gets the minimum access they need. People get extra access only when they ask, and only for a short time.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
@@ -296,7 +374,7 @@ flowchart LR
 
   <!-- 5 -->
   <section id="apixp">
-    <div class="head"><span class="step">View 5</span><h2>apixp: the front door</h2></div>
+    <div class="head"><span class="step">View 6</span><h2>apixp: the front door</h2></div>
     <p class="oneliner">The front door checks every request, then passes it on through private, internal-only routes.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
@@ -351,7 +429,7 @@ flowchart LR
 
   <!-- 6 -->
   <section id="intapp">
-    <div class="head"><span class="step">View 6</span><h2>intapp: the workshop</h2></div>
+    <div class="head"><span class="step">View 7</span><h2>intapp: the workshop</h2></div>
     <p class="oneliner">Each business area runs its own service, and they keep each other up to date through a shared message system.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
@@ -394,7 +472,7 @@ flowchart LR
 
   <!-- event-driven 1 -->
   <section id="events">
-    <div class="head"><span class="step">View 7</span><h2>Event-driven: how the services talk</h2></div>
+    <div class="head"><span class="step">View 8</span><h2>Event-driven: how the services talk</h2></div>
     <p class="oneliner">Services announce what happened, and anyone who needs to know listens. Nobody calls anybody directly.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
@@ -456,7 +534,7 @@ flowchart LR
 
   <!-- event-driven 2 -->
   <section id="reliable-events">
-    <div class="head"><span class="step">View 8</span><h2>Event-driven: never lose a message</h2></div>
+    <div class="head"><span class="step">View 9</span><h2>Event-driven: never lose a message</h2></div>
     <p class="oneliner">A change and its announcement are saved together, sent in order, processed once, and parked safely if something goes wrong.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
@@ -488,7 +566,7 @@ flowchart LR
 
   <!-- 7 -->
   <section id="order-flow">
-    <div class="head"><span class="step">View 9</span><h2>One order, start to finish</h2></div>
+    <div class="head"><span class="step">View 10</span><h2>One order, start to finish</h2></div>
     <p class="oneliner">The event-driven design in action: a retailer's order passes through three teams without any of them waiting for or calling each other.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
@@ -529,7 +607,7 @@ sequenceDiagram
 
   <!-- 8 -->
   <section id="agents">
-    <div class="head"><span class="step">View 10</span><h2>AI assistants follow the same rules</h2></div>
+    <div class="head"><span class="step">View 11</span><h2>AI assistants follow the same rules</h2></div>
     <p class="oneliner">AI assistants go through the same front door and the same checks as everyone else, and can only do what the person asking could do.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
@@ -566,7 +644,7 @@ sequenceDiagram
 
   <!-- 9 -->
   <section id="contracts">
-    <div class="head"><span class="step">View 11</span><h2>How the projects fit together</h2></div>
+    <div class="head"><span class="step">View 12</span><h2>How the projects fit together</h2></div>
     <p class="oneliner">The projects don't depend on each other's internals. They share a few agreed facts, like a contract.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
