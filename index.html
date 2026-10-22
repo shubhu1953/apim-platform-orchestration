@@ -157,34 +157,18 @@
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 flowchart LR
-  subgraph GOV["platform-governance"]
-    G1["Landing RGs"]
-    G2["Deploy identities&lt;br/&gt;OIDC per repo + env"]
-    G3["Least-privilege RBAC&lt;br/&gt;+ ABAC delegation"]
-    G4["PIM access&lt;br/&gt;access.yaml"]
-    G5["GitHub environments&lt;br/&gt;+ variables"]
-  end
-  subgraph APIXP["apixp subscription · apixp-infra"]
-    A1["core-services&lt;br/&gt;APIM · PE · Function · Logic App subnets"]
-    A2["integration-platform&lt;br/&gt;APIM · API Center · Key Vault&lt;br/&gt;App Config · utils · observability"]
-  end
-  subgraph INTAPP["intapp subscription · intapp-infra"]
-    I1["core-services&lt;br/&gt;workload subnets · NSGs · UDR&lt;br/&gt;central private DNS"]
-    I2["integration-applications&lt;br/&gt;shared services · Service Bus&lt;br/&gt;product · orders · logistics"]
-  end
-  subgraph APIS["API repos · one per domain"]
-    R1["func-product-api"]
-    R2["func-orders-api"]
-    R3["func-logistics-api"]
-  end
-  GOV --> APIXP
-  GOV --> INTAPP
-  GOV --> APIS
-  A1 --> A2
-  I1 --> I2
-  APIS -- "code" --> I2
-  APIS -- "API · policies · MCP tools" --> A2
-  A1 <-. "VNet peering" .-> I1
+  USERS["People, partners&lt;br/&gt;and AI assistants"]
+  DOOR["Front door&lt;br/&gt;apixp"]
+  WORK["Workshop&lt;br/&gt;intapp"]
+  TEAMS["Team projects&lt;br/&gt;product · orders · logistics"]
+  RULES["Rules and keys&lt;br/&gt;platform-governance"]
+  USERS -- "make requests" --> DOOR
+  DOOR -- "passes them on privately" --> WORK
+  TEAMS -- "run their services in" --> WORK
+  TEAMS -- "publish their APIs on" --> DOOR
+  RULES -. "sets up and controls" .-> DOOR
+  RULES -. "sets up and controls" .-> WORK
+  RULES -. "gives each team its keys" .-> TEAMS
 </pre></div>
       <div class="notes">
         <h3>In plain words</h3>
@@ -206,16 +190,13 @@ flowchart LR
     <p class="oneliner">We build in a fixed order: foundations first, then the rooms, then the furniture.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
-flowchart TD
-  B["1 · Bootstrap, local, once&lt;br/&gt;state storage · governance identity"] --> G["2 · platform-governance&lt;br/&gt;RGs · identities · RBAC · PIM · GitHub envs"]
-  G --> C1["3a · apixp core-services&lt;br/&gt;subnets on existing VNet"]
-  G --> C2["3b · intapp core-services&lt;br/&gt;subnets · central DNS zones"]
-  C1 --> P1["4a · apixp integration-platform&lt;br/&gt;APIM · API Center · shared services"]
-  C2 --> P2["4b · intapp integration-applications&lt;br/&gt;Service Bus · domain Function Apps"]
-  P1 --> S["5 · Second pass&lt;br/&gt;VNet peering + DNS links both ways"]
-  P2 --> S
-  S --> API["6 · API repos&lt;br/&gt;code to Function App&lt;br/&gt;API + MCP server to APIM&lt;br/&gt;register in API Center"]
-  API --> PROM["dev → test → pre → prod&lt;br/&gt;pre and prod wait for reviewers"]
+flowchart LR
+  S1["1&lt;br/&gt;Safe place for&lt;br/&gt;the blueprints"] --> S2["2&lt;br/&gt;Rules&lt;br/&gt;and keys"]
+  S2 --> S3["3&lt;br/&gt;Private&lt;br/&gt;network"]
+  S3 --> S4["4&lt;br/&gt;Front door and&lt;br/&gt;message system"]
+  S4 --> S5["5&lt;br/&gt;Connect the&lt;br/&gt;two areas"]
+  S5 --> S6["6&lt;br/&gt;Team&lt;br/&gt;services"]
+  S6 --> REL["Release: dev → test → pre-prod → prod&lt;br/&gt;the last two need a person to approve"]
 </pre></div>
       <div class="notes">
         <h3>In plain words</h3>
