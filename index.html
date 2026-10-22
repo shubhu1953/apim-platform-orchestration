@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="How an Azure integration platform is orchestrated: governance, APIM front door, domain services on a Service Bus backbone, and an MCP gateway for AI agents. Diagrams with talking points.">
+<title>APIM Platform Orchestration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: a briefing pack. One column of diagram "plates", each with a caption rail of talking points beside it on wide screens. */
+  :root {
+    --bg: #f3f5f4;
+    --surface: #ffffff;
+    --ink: #17221f;
+    --muted: #55645f;
+    --line: #d5ddd9;
+    --accent: #0f7a6c;      /* platform teal */
+    --signal: #b8641a;      /* guardrail amber */
+    --chip: #e4ece9;
+    --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101614; --surface: #17201d; --ink: #e5ece9; --muted: #9db0aa; --line: #2a3733;
+      --accent: #4cc2ae; --signal: #e39a55; --chip: #20302b; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101614; --surface: #17201d; --ink: #e5ece9; --muted: #9db0aa; --line: #2a3733;
+    --accent: #4cc2ae; --signal: #e39a55; --chip: #20302b; color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 400 1.0625rem/1.55 var(--font-body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 2rem 4rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 2.5rem; }
+
+  header { display: grid; gap: .9rem; }
+  .eyebrow { font: 600 .75rem/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  h1 { font: 700 clamp(2rem, 4.5vw, 3.1rem)/1.05 var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+  .pitch { max-width: 68ch; margin: 0; color: var(--muted); font-size: 1.125rem; }
+  .pitch strong { color: var(--ink); font-weight: 600; }
+
+  nav { display: flex; flex-wrap: wrap; gap: .5rem; }
+  nav a {
+    font: 600 .8125rem/1 var(--font-mono); color: var(--ink); text-decoration: none;
+    background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: .5rem .8rem;
+  }
+  nav a:hover, nav a:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+
+  .layers { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem; }
+  .layer { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: .9rem 1rem; display: grid; gap: .25rem; min-width: 0; }
+  .layer b { font: 600 .9rem/1.2 var(--font-mono); color: var(--accent); }
+  .layer span { color: var(--muted); font-size: .95rem; }
+
+  section { display: grid; gap: 1rem; scroll-margin-top: 1rem; }
+  .head { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
+  .step { font: 600 .8rem/1 var(--font-mono); color: var(--signal); }
+  h2 { font: 700 1.6rem/1.15 var(--font-display); margin: 0; text-wrap: balance; }
+  .oneliner { margin: 0; font-size: 1.1rem; max-width: 75ch; }
+  .oneliner::before { content: "Say it: "; font: 600 .8rem var(--font-mono); color: var(--accent); letter-spacing: .04em; }
+
+  .plate { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1rem; align-items: start; }
+  @media (max-width: 920px) { .plate { grid-template-columns: minmax(0, 1fr); } }
+  .diagram {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 1rem; overflow-x: auto; min-width: 0;
+  }
+  .diagram pre.mermaid { margin: 0; background: transparent; font-size: 14px; min-width: 560px; }
+  .notes { display: grid; gap: .9rem; min-width: 0; }
+  .notes h3 { margin: 0; font: 600 .75rem/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .notes ul { margin: 0; padding-left: 1.1rem; display: grid; gap: .45rem; }
+  .notes li { font-size: .98rem; }
+  .ask { border-left: 3px solid var(--signal); padding: .2rem 0 .2rem .8rem; display: grid; gap: .3rem; }
+  .ask q { font-weight: 600; quotes: "“" "”"; }
+  .ask p { margin: 0; color: var(--muted); font-size: .96rem; }
+  code { font: 400 .88em var(--font-mono); background: var(--chip); padding: .05em .35em; border-radius: 4px; }
+
+  footer { color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  html { scroll-behavior: smooth; }
+</style>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  body { margin: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Azure integration platform · Terraform · GitHub Actions</div>
+    <h1>How the platform is orchestrated</h1>
+    <p class="pitch">Three platform repos and one repo per business domain. <strong>Governance</strong> decides who may deploy what and where.
+      <strong>apixp</strong> is the front door: APIM, API Center and shared services. <strong>intapp</strong> hosts the domain services and the
+      Service Bus event backbone. Everything is private by default, every pipeline signs in without secrets, and AI agents
+      use the same governed APIs as everything else.</p>
+    <div class="layers">
+      <div class="layer"><b>platform-governance</b><span>Landing RGs, deploy identities, least-privilege RBAC, PIM, GitHub environments</span></div>
+      <div class="layer"><b>apixp-infra</b><span>core-services network + integration-platform: APIM, API Center, Key Vault, App Config, utils, observability</span></div>
+      <div class="layer"><b>intapp-infra</b><span>core-services network + central DNS, integration-applications: Service Bus, domain Function Apps</span></div>
+      <div class="layer"><b>func-*-api</b><span>Product, Orders, Logistics: .NET domain service, API, policies, MCP tools, API Center entry</span></div>
+    </div>
+    <nav aria-label="Diagrams">
+      <a href="#big-picture">Big picture</a>
+      <a href="#delivery">Delivery order</a>
+      <a href="#identity">Pipeline sign-in</a>
+      <a href="#governance">Governance RBAC</a>
+      <a href="#apixp">apixp</a>
+      <a href="#intapp">intapp</a>
+      <a href="#order-flow">Order end to end</a>
+      <a href="#agents">AI agents (MCP)</a>
+      <a href="#contracts">Repo contracts</a>
+    </nav>
+  </header>
+
+  <!-- 1 -->
+  <section id="big-picture">
+    <div class="head"><span class="step">View 1</span><h2>Big picture: who owns what</h2></div>
+    <p class="oneliner">Governance sets the guardrails, the two infra repos build the landing zones, and each domain repo deploys its own code and API into them.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph GOV["platform-governance"]
+    G1["Landing RGs"]
+    G2["Deploy identities&lt;br/&gt;OIDC per repo + env"]
+    G3["Least-privilege RBAC&lt;br/&gt;+ ABAC delegation"]
+    G4["PIM access&lt;br/&gt;access.yaml"]
+    G5["GitHub environments&lt;br/&gt;+ variables"]
+  end
+  subgraph APIXP["apixp subscription · apixp-infra"]
+    A1["core-services&lt;br/&gt;APIM · PE · Function · Logic App subnets"]
+    A2["integration-platform&lt;br/&gt;APIM · API Center · Key Vault&lt;br/&gt;App Config · utils · observability"]
+  end
+  subgraph INTAPP["intapp subscription · intapp-infra"]
+    I1["core-services&lt;br/&gt;workload subnets · NSGs · UDR&lt;br/&gt;central private DNS"]
+    I2["integration-applications&lt;br/&gt;shared services · Service Bus&lt;br/&gt;product · orders · logistics"]
+  end
+  subgraph APIS["API repos · one per domain"]
+    R1["func-product-api"]
+    R2["func-orders-api"]
+    R3["func-logistics-api"]
+  end
+  GOV --> APIXP
+  GOV --> INTAPP
+  GOV --> APIS
+  A1 --> A2
+  I1 --> I2
+  APIS -- "code" --> I2
+  APIS -- "API · policies · MCP tools" --> A2
+  A1 <-. "VNet peering" .-> I1
+</pre></div>
+      <div class="notes">
+        <h3>Talking points</h3>
+        <ul>
+          <li>Two subscriptions with a clear split: <b>apixp</b> exposes, <b>intapp</b> runs. The blast radius of a change stays in one place.</li>
+          <li>Each infra repo has two Terraform roots: <code>core-services</code> (network in an existing VNet) and an application root on top.</li>
+          <li>Domain teams own their repo end to end: code, OpenAPI contract, policies and MCP tools. Adding an API doesn't touch apixp-infra.</li>
+          <li>Naming is one convention everywhere: <code>prh-&lt;type&gt;-&lt;sub&gt;-&lt;env&gt;-&lt;purpose&gt;-uks-001</code>.</li>
+        </ul>
+        <div class="ask"><q>Why separate repos instead of one mono-repo?</q>
+          <p>Different owners, cadence and permissions. Each repo's pipeline identity can only touch its own resource groups, so a domain team can't change the gateway and the platform team can't change domain code.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section id="delivery">
+    <div class="head"><span class="step">View 2</span><h2>Delivery order: how the pipelines chain</h2></div>
+    <p class="oneliner">Bootstrap once, then governance, then network, then platform services, then the domains, promoted dev to prod.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+flowchart TD
+  B["1 · Bootstrap, local, once&lt;br/&gt;state storage · governance identity"] --> G["2 · platform-governance&lt;br/&gt;RGs · identities · RBAC · PIM · GitHub envs"]
+  G --> C1["3a · apixp core-services&lt;br/&gt;subnets on existing VNet"]
+  G --> C2["3b · intapp core-services&lt;br/&gt;subnets · central DNS zones"]
+  C1 --> P1["4a · apixp integration-platform&lt;br/&gt;APIM · API Center · shared services"]
+  C2 --> P2["4b · intapp integration-applications&lt;br/&gt;Service Bus · domain Function Apps"]
+  P1 --> S["5 · Second pass&lt;br/&gt;VNet peering + DNS links both ways"]
+  P2 --> S
+  S --> API["6 · API repos&lt;br/&gt;code to Function App&lt;br/&gt;API + MCP server to APIM&lt;br/&gt;register in API Center"]
+  API --> PROM["dev → test → pre → prod&lt;br/&gt;pre and prod wait for reviewers"]
+</pre></div>
+      <div class="notes">
+        <h3>Talking points</h3>
+        <ul>
+          <li>Bootstrap is the only manual step: it creates state storage and the identity governance runs as.</li>
+          <li>Governance writes each repo's GitHub environment variables, so nobody copies client IDs by hand.</li>
+          <li>Each infra pipeline runs <code>core-services</code> then the application root in one job, per environment.</li>
+          <li>Peering is a deliberate second pass: each side owns its half, so neither repo needs rights to create the other's VNet.</li>
+          <li>PRs plan every environment and post the plan as a comment; merging to main applies in order.</li>
+        </ul>
+        <div class="ask"><q>What happens if the network layer changes in the same PR as an app?</q>
+          <p>The application roots build subnet and DNS zone IDs from the shared naming module instead of reading state, so they still plan; on apply, core-services always runs first.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section id="identity">
+    <div class="head"><span class="step">View 3</span><h2>Pipeline sign-in: no secrets anywhere</h2></div>
+    <p class="oneliner">GitHub exchanges an OIDC token for a managed identity that is federated to exactly one repo and one environment.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+  participant GH as GitHub Actions job
+  participant Entra as Entra ID
+  participant State as Terraform state
+  participant ARM as Azure Resource Manager
+  GH->>Entra: OIDC token, subject repo:org/intapp-infra:environment:dev
+  Entra->>Entra: match federated credential on id-gh-intapp-infra-dev
+  Entra-->>GH: access token for that managed identity
+  GH->>State: read and write its own state container only
+  GH->>ARM: plan and apply on its landing RGs only
+  ARM-->>GH: role assignments allowed only for delegable roles (ABAC)
+</pre></div>
+      <div class="notes">
+        <h3>Talking points</h3>
+        <ul>
+          <li>One user-assigned identity per repo and environment, federated to that GitHub environment. Prod credentials can't be used from a dev job.</li>
+          <li>pre and prod environments can only deploy from protected branches and need reviewer approval.</li>
+          <li>Infra pipelines can grant roles, but an ABAC condition limits them to a short list of data-plane roles, such as Key Vault Secrets User and Service Bus Data Sender.</li>
+          <li>Resource providers are registered by governance, so pipelines need no subscription-level rights.</li>
+        </ul>
+        <div class="ask"><q>Why not a service principal with a secret?</q>
+          <p>A secret can leak and has to be rotated. With federation there is nothing to store, the token lives minutes, and the trust is scoped to repo + environment.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section id="governance">
+    <div class="head"><span class="step">View 4</span><h2>Governance: least privilege by resource group</h2></div>
+    <p class="oneliner">Every identity, human or pipeline, gets the smallest scope that lets it do its job, and humans have no standing write access.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph ID["Deploy identities, per repo and env"]
+    IA["apixp-infra-dev"]
+    II["intapp-infra-dev"]
+    IP["func-orders-api-dev"]
+  end
+  subgraph AX["apixp subscription"]
+    AXR["Landing RGs&lt;br/&gt;apimgmt · sharedsvcs · utils · observability"]
+    AXN["Existing network RG"]
+  end
+  subgraph IN["intapp subscription"]
+    INR["Landing RGs&lt;br/&gt;sharedsvcs · product · orders · logistics"]
+    INN["Existing network RG"]
+  end
+  subgraph HUM["People"]
+    H["Entra groups from access.yaml"]
+  end
+  IA -- "Contributor + constrained RBAC admin" --> AXR
+  IA -- "Network Contributor" --> AXN
+  IA -- "Peering operator" --> INN
+  II -- "Contributor + constrained RBAC admin" --> INR
+  II -- "Network Contributor" --> INN
+  II -- "Peering operator" --> AXN
+  IP -- "Website Contributor on orders RG only" --> INR
+  IP -- "APIM + API Center contributor on apimgmt" --> AXR
+  H -- "PIM eligible: MFA, justification, approval" --> AXR
+  H -- "PIM eligible" --> INR
+</pre></div>
+      <div class="notes">
+        <h3>Talking points</h3>
+        <ul>
+          <li>Governance creates the landing RGs, so pipelines are scoped to RGs, not subscriptions, and can't create new ones.</li>
+          <li>The VNets are existing and owned by the network team; pipelines only get Network Contributor on that RG to add subnets.</li>
+          <li>A custom "VNet Peering Operator" role lets each side peer and register private endpoints in the other side's DNS zones, and nothing else.</li>
+          <li>People's access is code: change <code>access.yaml</code> in a PR, the plan shows who gains or loses access, merge to apply. Membership is authoritative.</li>
+        </ul>
+        <div class="ask"><q>How do you stop a pipeline from granting itself Owner?</q>
+          <p>It only has Role Based Access Control Administrator with an ABAC condition listing the role definition IDs it may assign. Any other role assignment is denied by Azure.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section id="apixp">
+    <div class="head"><span class="step">View 5</span><h2>apixp: the front door</h2></div>
+    <p class="oneliner">APIM sits in its own subnet with its own route table; shared services and utilities are private and reached through private endpoints.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph NET["Existing VNet · core-services"]
+    SA["snet-apim&lt;br/&gt;NSG + own route table"]
+    SP["snet-private-endpoints&lt;br/&gt;NSG + shared UDR"]
+    SF["snet-functionapp&lt;br/&gt;delegated · NSG + shared UDR"]
+    SL["snet-logicapp&lt;br/&gt;delegated · NSG + shared UDR"]
+    SA --> SP --> SF --> SL
+  end
+  UDR["Shared UDR, existing"] -. "routes merged" .-> SA
+  subgraph APIMRG["APIM RG"]
+    APIM["API Management&lt;br/&gt;system + user identity"]
+    APIC["API Center"]
+  end
+  subgraph SS["Shared services RG"]
+    KV["Key Vault"]
+    AC["App Configuration ×2"]
+  end
+  subgraph UT["Utils RG"]
+    FN["common-utils Function App · P0v3"]
+    ST["Routing storage · table"]
+  end
+  subgraph OB["Observability RG"]
+    LAW["Log Analytics + App Insights"]
+    AG["Action group + alerts"]
+  end
+  APIM -- "injected" --> SA
+  APIM -- "named values via UAMI" --> KV
+  FN -- "VNet integration" --> SF
+  FN --> AC
+  FN --> ST
+  KV -. "private endpoint" .-> SP
+  AC -. "private endpoint" .-> SP
+  APIM -- "logger + diagnostics" --> LAW
+  LAW -. "optional" .-> DT["Dynatrace Event Hub"]
+</pre></div>
+      <div class="notes">
+        <h3>Talking points</h3>
+        <ul>
+          <li>Subnets are created in an explicit <code>depends_on</code> chain so operations on the shared VNet never overlap.</li>
+          <li>APIM's route table merges the shared UDR with a direct route for the APIM control plane, so forced tunnelling doesn't break the gateway.</li>
+          <li>The policy layer is platform-owned: global policy plus fragments for auth, rate limit, errors, routing and MCP guardrails.</li>
+          <li>Identities follow the slide: APIM UAMI reads Key Vault, the common-utils UAMI reads config and the routing table, a KQL identity can only read logs.</li>
+        </ul>
+        <div class="ask"><q>Why External VNet mode and not Internal?</q>
+          <p>External keeps a public gateway for partners while every backend stays private. It's one variable (<code>apim_virtual_network_type</code>) if the gateway should go fully private behind a WAF.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section id="intapp">
+    <div class="head"><span class="step">View 6</span><h2>intapp: domain services and the event backbone</h2></div>
+    <p class="oneliner">One resource group, subnet and Function App per business domain, with a shared Service Bus where each domain owns one topic.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph NET["Existing VNet · core-services"]
+    WS["snet-product · snet-orders · snet-logistics&lt;br/&gt;delegated · NSG · shared UDR"]
+    PE["snet-private-endpoints&lt;br/&gt;NSG · shared UDR"]
+    DNS["Central private DNS zones&lt;br/&gt;vault · blob · sites · servicebus · azconfig"]
+  end
+  subgraph SS["Shared services RG"]
+    KV["Key Vault"]
+    LAW["Log Analytics + App Insights"]
+    SB["Service Bus Premium&lt;br/&gt;product · order · logistics .events"]
+  end
+  subgraph WK["Workload RG per domain ×3"]
+    ASP["App Service Plan"] --> FA["Linux Function App&lt;br/&gt;.NET 8 isolated · system identity"]
+    STG["Host storage · keyless"]
+  end
+  FA -- "all outbound via subnet" --> WS
+  FA -- "send own topic, receive own subscription" --> SB
+  FA -- "Secrets User" --> KV
+  FA --> STG
+  FA -. "telemetry" .-> LAW
+  PE -. "app · storage · KV · SB endpoints" .-> DNS
+</pre></div>
+      <div class="notes">
+        <h3>Talking points</h3>
+        <ul>
+          <li>Private by default: Function Apps, storage, Key Vault and Service Bus have public access off. APIM reaches apps over peering and private DNS.</li>
+          <li>No connection strings: storage, Service Bus and Key Vault all use the app's managed identity.</li>
+          <li>The backbone topology is one YAML file. Terraform turns it into topics, filtered subscriptions and exactly the RBAC each publisher and consumer needs.</li>
+          <li>intapp owns the central private DNS zones, and apixp's private endpoints register in them too.</li>
+        </ul>
+        <div class="ask"><q>Why Service Bus and not Event Grid for this?</q>
+          <p>We need ordering per order or ISBN (sessions), duplicate detection, dead-lettering and replay. Event Grid is kept as an optional add-on for push-style notifications.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section id="order-flow">
+    <div class="head"><span class="step">View 7</span><h2>One order, end to end</h2></div>
+    <p class="oneliner">A retailer order moves through three domains without any of them calling each other directly.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant EDI as EDI inbound adapter
+  participant ORD as Orders service
+  participant SB as Service Bus
+  participant LOG as Logistics service
+  participant BY as Blue Yonder adapter
+  participant OUT as EDI outbound adapter
+  EDI->>SB: PlaceOrder to order.commands
+  SB->>ORD: PlaceOrder, session = OrderId
+  ORD->>ORD: save order + outbox in one unit of work
+  ORD->>SB: OrderReceived, OrderAccepted to order.events
+  SB->>LOG: OrderAccepted via logistics-allocation
+  LOG->>SB: OrderAllocated + StockChanged to logistics.events
+  BY->>LOG: dispatchShipment, warehouse has shipped
+  LOG->>SB: ShipmentDispatched to logistics.events
+  SB->>ORD: ShipmentDispatched via orders-status
+  SB->>OUT: ShipmentDispatched via edi-despatch-advice
+</pre></div>
+      <div class="notes">
+        <h3>Talking points</h3>
+        <ul>
+          <li>S1 naming: <code>&lt;domain&gt;.events</code> topics, <code>&lt;domain&gt;.commands</code> queues, subscription named for the consumer.</li>
+          <li>S2 ownership: only the owning domain can send to its topic; each consumer can read only its own subscription.</li>
+          <li>S3 envelope: CloudEvents-style body plus an <code>eventType</code> property that subscription filters match on.</li>
+          <li>S4 reliability: transactional outbox, duplicate detection on event ID, sessions for ordering, idempotent consumers, dead-letter then alert.</li>
+          <li>S5 contracts: AsyncAPI and JSON Schema in Git, additive changes only.</li>
+        </ul>
+        <div class="ask"><q>What if Service Bus is down when the order is saved?</q>
+          <p>The event is already in the outbox with the order. The dispatcher retries in order on its next run, so nothing is lost and nothing is published for a change that didn't happen.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section id="agents">
+    <div class="head"><span class="step">View 8</span><h2>AI agents use the same governed APIs</h2></div>
+    <p class="oneliner">APIM exposes read-only API operations as MCP tools, so an agent acts as the user through the same checkpoint as every other client.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor Rep as Sales rep
+  participant Agent as Copilot Studio agent
+  participant APIM as APIM MCP server
+  participant Fn as Logistics Function App
+  participant APIC as API Center
+  Rep->>Agent: What is the stock for ISBN 9780141036144?
+  Agent->>APIM: MCP call getStock with the rep's Entra token
+  APIM->>APIM: guardrails: token G2, approved client G1, rate limit, audit G5
+  APIM->>Fn: GET stock via private endpoint + function key
+  Fn-->>APIM: available, reserved, free
+  APIM-->>Agent: tool result, outcome audited
+  Agent-->>Rep: answer
+  Note over APIC: only APIs and MCP servers registered here are approved, G1 G6 G7
+</pre></div>
+      <div class="notes">
+        <h3>Talking points</h3>
+        <ul>
+          <li><b>G1</b> only MCP servers in the <code>agents</code> product and registered in API Center; unknown agent apps get 403.</li>
+          <li><b>G2</b> the agent passes the user's own token, and the API checks audience and <code>Logistics.Read</code> scope.</li>
+          <li><b>G3</b> tools are generated from operations marked in the OpenAPI file; a write tool fails the deploy without explicit approval.</li>
+          <li><b>G4–G5</b> inputs are validated against the contract; user, agent, tool and outcome are logged to App Insights.</li>
+          <li><b>G6–G7</b> tools are versioned with the API; confidential data needs approval before any tool is exposed.</li>
+        </ul>
+        <div class="ask"><q>Why not let the agent call SAP or the database directly?</q>
+          <p>That's a new point-to-point coupling with no audit or scopes. Going through the domain API reuses its contract, auth, rate limits and logging, and the agent can't do more than the user could.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 -->
+  <section id="contracts">
+    <div class="head"><span class="step">View 9</span><h2>How the repos talk to each other</h2></div>
+    <p class="oneliner">Repos never call each other; they share outputs, a naming convention and GitHub variables.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  GOV["platform-governance"] -- "GitHub env vars&lt;br/&gt;client ID · subscriptions · FUNCTION_APP_KEY · policy tokens" --> API["API repo pipeline"]
+  APX["apixp-infra state&lt;br/&gt;apim_name · product_ids · api_center"] -- "terraform_remote_state" --> API
+  INT["intapp-infra state&lt;br/&gt;function_apps by domain"] -- "terraform_remote_state" --> API
+  NAME["Shared naming module&lt;br/&gt;prh-type-sub-env-purpose-uks-001"] --> CS["core-services roots"]
+  NAME --> APP["application roots&lt;br/&gt;build subnet and DNS IDs by name"]
+  YAML["event-domains.yaml"] --> SBT["topics · subscriptions · RBAC"]
+  OAS["openapi.yaml"] --> APIT["API · MCP tools · API Center definition"]
+</pre></div>
+      <div class="notes">
+        <h3>Talking points</h3>
+        <ul>
+          <li>Terraform outputs are treated as a contract: the API repos read only a few named outputs, so the infra can change underneath them.</li>
+          <li>Two files drive most of the platform: <code>event-domains.yaml</code> for messaging and each repo's <code>openapi.yaml</code> for APIs and tools.</li>
+          <li>Policy values per environment come from GitHub variables written by governance and are replaced at deploy time; secrets stay in Key Vault.</li>
+        </ul>
+        <div class="ask"><q>How do you add a new domain?</q>
+          <p>Add a subnet and a workload entry in intapp-infra, the domain to governance, its topic to <code>event-domains.yaml</code>, then copy an API repo. No change to apixp-infra.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Names follow the platform convention (for example <code>prh-rg-intapp-dev-orders-uks-001</code>). Diagrams describe the repos as built; MCP servers use APIM's preview API.</footer>
+</div>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "default", securityLevel: "antiscript", flowchart: { htmlLabels: true } });
+</script>
+</body>
+</html>
