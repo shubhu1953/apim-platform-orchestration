@@ -90,6 +90,12 @@
   .ask p { margin: 0; color: var(--muted); font-size: .96rem; }
   code { font: 400 .88em var(--font-mono); background: var(--chip); padding: .05em .35em; border-radius: 4px; }
 
+  .detail { margin: 0; display: grid; gap: .6rem; }
+  .detail a { display: block; background: #ffffff; border: 1px solid var(--line); border-radius: 12px; padding: .75rem; }
+  .detail a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .detail img { display: block; width: 100%; height: auto; }
+  .detail figcaption { color: var(--muted); font-size: .95rem; max-width: 90ch; }
+  .detail .hint { white-space: nowrap; }
   footer { color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); padding-top: 1rem; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   html { scroll-behavior: smooth; }
@@ -530,6 +536,10 @@ flowchart LR
           <p>An API is for asking a question now ("what's the stock?"). An event tells everyone that something happened. We use both: APIs at the front door, events between the services.</p></div>
       </div>
     </div>
+    <figure class="detail">
+      <a href="images/event-backbone.png" target="_blank" rel="noopener"><img src="images/event-backbone.png" alt="Service Bus event backbone organised by business domain: source adapters, owning services, domain topics, filtered subscriptions and consumers, with one retailer order traced in steps 1 to 9 and the backbone standards S1 to S5." loading="lazy" width="1657"></a>
+      <figcaption><b>Detailed view.</b> The full backbone: each source system's adapter, the owning service, its topic and every filtered subscription and consumer. Red 1 to 9 trace one retailer order (the same journey as View 10); orange S1 to S5 are the standards every domain follows. <span class="hint">Select the image to open it full size.</span></figcaption>
+    </figure>
   </section>
 
   <!-- event-driven 2 -->
@@ -640,6 +650,10 @@ sequenceDiagram
           <p>That would skip every safety check. Going through the front door means the same rules, limits and audit trail as any other user.</p></div>
       </div>
     </div>
+    <figure class="detail">
+      <a href="images/mcp-gateway.png" target="_blank" rel="noopener"><img src="images/mcp-gateway.png" alt="MCP on Azure: AI clients, the governance gateway (API Management, API Center, monitoring), optional custom MCP servers, the governed domain APIs and the event backbone, with guardrails G1 to G7." loading="lazy" width="1657"></a>
+      <figcaption><b>Detailed view.</b> The layers one AI request passes through, from the assistant to the governance gateway to the domain APIs, with the event backbone keeping them up to date. Path 4a (straight from the gateway to the domain API) is what is built today; 4b, a custom MCP server, is only for tools that need it. G1 to G7 are the guardrails. <span class="hint">Select the image to open it full size.</span></figcaption>
+    </figure>
   </section>
 
   <!-- 9 -->
