@@ -108,12 +108,12 @@
     <h1>How the platform is orchestrated</h1>
     <p class="pitch">How our APIs and the business systems behind them run in Azure. Think of it as a building with three parts:
       <strong>the rules and keys</strong> (who may change what), <strong>the front door</strong> (where every request is checked) and
-      <strong>the workshop</strong> (where the business services do the work). Everything is private by default, nothing uses stored
-      passwords, and AI assistants follow the same rules as everyone else.</p>
+      <strong>the workshop</strong> (where the business services do the work). The business services work together through <strong>events</strong>: they announce what happened instead of calling each other.
+      Everything is private by default, nothing uses stored passwords, and AI assistants follow the same rules as everyone else.</p>
     <div class="layers">
       <div class="layer"><b>Rules and keys</b><span>platform-governance: who can change what, and where</span></div>
       <div class="layer"><b>Front door</b><span>apixp: every request, from people, partner systems or AI assistants, comes in here and is checked</span></div>
-      <div class="layer"><b>Workshop</b><span>intapp: the business services and the message system that keeps them in sync</span></div>
+      <div class="layer"><b>Workshop</b><span>intapp: the business services, talking to each other through events on a shared message system</span></div>
       <div class="layer"><b>Team projects</b><span>One per business area (products, orders, logistics). Each team ships its own service</span></div>
     </div>
     <details class="glossary">
@@ -123,6 +123,9 @@
         <div><dt>API Management (APIM)</dt><dd>The front door that checks every request before passing it on.</dd></div>
         <div><dt>API Center</dt><dd>The catalogue of approved APIs and AI tools.</dd></div>
         <div><dt>Service Bus</dt><dd>A post room that delivers messages between services.</dd></div>
+        <div><dt>Event</dt><dd>An announcement that something happened, such as "order accepted".</dd></div>
+        <div><dt>Topic and subscription</dt><dd>A topic is one area's announcement channel; each listener has its own filtered subscription to it.</dd></div>
+        <div><dt>Outbox</dt><dd>Saving a change and its announcement together, so neither is lost.</dd></div>
         <div><dt>Function App</dt><dd>A small piece of code that runs one business service.</dd></div>
         <div><dt>Terraform</dt><dd>Blueprints written as code, so Azure is built the same way every time.</dd></div>
         <div><dt>Pipeline</dt><dd>The automated assembly line that builds, tests and releases changes.</dd></div>
@@ -139,6 +142,8 @@
       <a href="#governance">Access</a>
       <a href="#apixp">Front door</a>
       <a href="#intapp">Workshop</a>
+      <a href="#events">Event-driven</a>
+      <a href="#reliable-events">Reliable events</a>
       <a href="#order-flow">One order</a>
       <a href="#agents">AI assistants</a>
       <a href="#contracts">How it fits</a>
@@ -406,10 +411,104 @@ flowchart LR
     </div>
   </section>
 
+  <!-- event-driven 1 -->
+  <section id="events">
+    <div class="head"><span class="step">View 7</span><h2>Event-driven: how the services talk</h2></div>
+    <p class="oneliner">Services announce what happened, and anyone who needs to know listens. Nobody calls anybody directly.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph PUB["Owners · the only one allowed to post"]
+    P["Product service"]
+    O["Orders service"]
+    L["Logistics service"]
+    EDI["EDI inbound adapter"]
+  end
+  subgraph BUS["Service Bus · one topic per business area"]
+    PT["product.events&lt;br/&gt;ProductCreated · MetadataChanged&lt;br/&gt;PriceChanged · PubDateChanged"]
+    OT["order.events&lt;br/&gt;OrderReceived · OrderAccepted&lt;br/&gt;OrderCancelled"]
+    LT["logistics.events&lt;br/&gt;StockChanged · OrderAllocated&lt;br/&gt;ShipmentDispatched"]
+    OC["order.commands queue&lt;br/&gt;PlaceOrder"]
+  end
+  subgraph CON["Listeners · each with its own filtered subscription"]
+    C1["ONIX adapter"]
+    C2["Website search"]
+    C3["Logistics service"]
+    C4["SAP adapter"]
+    C5["Notifications"]
+    C6["Orders service"]
+    C7["EDI outbound adapter"]
+    C8["Data platform"]
+  end
+  P --> PT
+  O --> OT
+  L --> LT
+  EDI --> OC
+  OC -- "orders receives" --> C6
+  PT -- "onix-feed" --> C1
+  PT -- "website-search" --> C2
+  PT -- "logistics-sku-setup" --> C3
+  PT -- "data-platform" --> C8
+  OT -- "logistics-allocation" --> C3
+  OT -- "sap-finance" --> C4
+  OT -- "customer-notify" --> C5
+  OT -- "data-platform" --> C8
+  LT -- "orders-status" --> C6
+  LT -- "edi-despatch-advice" --> C7
+  LT -- "sap-stock" --> C4
+  LT -- "data-platform" --> C8
+</pre></div>
+      <div class="notes">
+        <h3>In plain words</h3>
+        <ul>
+          <li>Services announce what happened ("order accepted", "stock changed") instead of calling each other.</li>
+          <li>Each business area owns one channel (a topic) and is the only one allowed to post on it.</li>
+          <li>Anyone who cares subscribes. Adding a new listener, such as a new reporting feed, needs no change to the sender.</li>
+          <li>Each listener gets its own filtered copy and its own "problem tray", so one slow or broken listener never holds up the others.</li>
+          <li>Channels, filters and permissions are all generated from one file, so this picture is exactly what is deployed.</li>
+        </ul>
+        <div class="ask"><q>How is this different from an API?</q>
+          <p>An API is for asking a question now ("what's the stock?"). An event tells everyone that something happened. We use both: APIs at the front door, events between the services.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- event-driven 2 -->
+  <section id="reliable-events">
+    <div class="head"><span class="step">View 8</span><h2>Event-driven: never lose a message</h2></div>
+    <p class="oneliner">A change and its announcement are saved together, sent in order, processed once, and parked safely if something goes wrong.</p>
+    <div class="plate">
+      <div class="diagram"><pre class="mermaid">
+flowchart LR
+  REQ["Request or command&lt;br/&gt;e.g. place order"] --> SVC["Domain service"]
+  SVC -- "one unit of work" --> DB[("Order + outbox entry&lt;br/&gt;saved together")]
+  DISP["Outbox dispatcher&lt;br/&gt;runs every 10 s"] -- "reads pending" --> DB
+  DISP -- "MessageId = event id&lt;br/&gt;SessionId = OrderId" --> T["Topic&lt;br/&gt;duplicate detection"]
+  T --> SUB["Filtered subscription&lt;br/&gt;sessions keep order"]
+  SUB --> CONS["Listener&lt;br/&gt;skips repeats"]
+  SUB -- "still failing after retries" --> DLQ["Dead-letter queue&lt;br/&gt;alert + replay"]
+  CONTRACT["Contracts in Git&lt;br/&gt;AsyncAPI + JSON Schema"] -. "same envelope for every event" .-> T
+</pre></div>
+      <div class="notes">
+        <h3>In plain words</h3>
+        <ul>
+          <li>The change and its announcement are saved together (the "outbox"), so you never get one without the other.</li>
+          <li>A background job sends the announcements in order. If the message system is down, it simply tries again later.</li>
+          <li>Every message has a unique ID, so if it arrives twice it is only acted on once.</li>
+          <li>Messages about the same order or book are kept in sequence.</li>
+          <li>If a message keeps failing, it is set aside with the reason, an alert goes out, and it can be replayed after a fix.</li>
+          <li>Every event uses one agreed format, written down in Git. Changes only ever add fields.</li>
+        </ul>
+        <div class="ask"><q>What happens to listeners when an event changes?</q>
+          <p>We only add fields, so existing listeners keep working. A breaking change becomes a new version that runs alongside the old one until everyone has moved over.</p></div>
+      </div>
+    </div>
+  </section>
+
   <!-- 7 -->
   <section id="order-flow">
-    <div class="head"><span class="step">View 7</span><h2>One order, start to finish</h2></div>
-    <p class="oneliner">A retailer's order passes through three teams without any of them waiting for or calling each other.</p>
+    <div class="head"><span class="step">View 9</span><h2>One order, start to finish</h2></div>
+    <p class="oneliner">The event-driven design in action: a retailer's order passes through three teams without any of them waiting for or calling each other.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 sequenceDiagram
@@ -449,7 +548,7 @@ sequenceDiagram
 
   <!-- 8 -->
   <section id="agents">
-    <div class="head"><span class="step">View 8</span><h2>AI assistants follow the same rules</h2></div>
+    <div class="head"><span class="step">View 10</span><h2>AI assistants follow the same rules</h2></div>
     <p class="oneliner">AI assistants go through the same front door and the same checks as everyone else, and can only do what the person asking could do.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
@@ -486,7 +585,7 @@ sequenceDiagram
 
   <!-- 9 -->
   <section id="contracts">
-    <div class="head"><span class="step">View 9</span><h2>How the projects fit together</h2></div>
+    <div class="head"><span class="step">View 11</span><h2>How the projects fit together</h2></div>
     <p class="oneliner">The projects don't depend on each other's internals. They share a few agreed facts, like a contract.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
