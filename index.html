@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="How an Azure integration platform is orchestrated: governance, APIM front door, domain services on a Service Bus backbone, and an MCP gateway for AI agents. Diagrams with talking points.">
+<meta name="description" content="How an Azure integration platform runs: the rules and keys, the front door, the workshop and AI assistants. Diagrams explained in plain language.">
 <title>APIM Platform Orchestration</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,12 +61,18 @@
   .layer b { font: 600 .9rem/1.2 var(--font-mono); color: var(--accent); }
   .layer span { color: var(--muted); font-size: .95rem; }
 
+  .glossary { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: .75rem 1rem; }
+  .glossary summary { cursor: pointer; font: 600 .95rem var(--font-body); color: var(--accent); }
+  .glossary dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .6rem 1.5rem; margin: .8rem 0 .2rem; }
+  .glossary dl div { min-width: 0; }
+  .glossary dt { font-weight: 600; }
+  .glossary dd { margin: 0; color: var(--muted); font-size: .95rem; }
   section { display: grid; gap: 1rem; scroll-margin-top: 1rem; }
   .head { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
   .step { font: 600 .8rem/1 var(--font-mono); color: var(--signal); }
   h2 { font: 700 1.6rem/1.15 var(--font-display); margin: 0; text-wrap: balance; }
   .oneliner { margin: 0; font-size: 1.1rem; max-width: 75ch; }
-  .oneliner::before { content: "Say it: "; font: 600 .8rem var(--font-mono); color: var(--accent); letter-spacing: .04em; }
+  .oneliner::before { content: "In one line: "; font: 600 .8rem var(--font-mono); color: var(--accent); letter-spacing: .04em; }
 
   .plate { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1rem; align-items: start; }
   @media (max-width: 920px) { .plate { grid-template-columns: minmax(0, 1fr); } }
@@ -98,35 +104,51 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Azure integration platform · Terraform · GitHub Actions</div>
+    <div class="eyebrow">Azure integration platform · explained simply</div>
     <h1>How the platform is orchestrated</h1>
-    <p class="pitch">Three platform repos and one repo per business domain. <strong>Governance</strong> decides who may deploy what and where.
-      <strong>apixp</strong> is the front door: APIM, API Center and shared services. <strong>intapp</strong> hosts the domain services and the
-      Service Bus event backbone. Everything is private by default, every pipeline signs in without secrets, and AI agents
-      use the same governed APIs as everything else.</p>
+    <p class="pitch">How our APIs and the business systems behind them run in Azure. Think of it as a building with three parts:
+      <strong>the rules and keys</strong> (who may change what), <strong>the front door</strong> (where every request is checked) and
+      <strong>the workshop</strong> (where the business services do the work). Everything is private by default, nothing uses stored
+      passwords, and AI assistants follow the same rules as everyone else.</p>
     <div class="layers">
-      <div class="layer"><b>platform-governance</b><span>Landing RGs, deploy identities, least-privilege RBAC, PIM, GitHub environments</span></div>
-      <div class="layer"><b>apixp-infra</b><span>core-services network + integration-platform: APIM, API Center, Key Vault, App Config, utils, observability</span></div>
-      <div class="layer"><b>intapp-infra</b><span>core-services network + central DNS, integration-applications: Service Bus, domain Function Apps</span></div>
-      <div class="layer"><b>func-*-api</b><span>Product, Orders, Logistics: .NET domain service, API, policies, MCP tools, API Center entry</span></div>
+      <div class="layer"><b>Rules and keys</b><span>platform-governance: who can change what, and where</span></div>
+      <div class="layer"><b>Front door</b><span>apixp: every request, from people, partner systems or AI assistants, comes in here and is checked</span></div>
+      <div class="layer"><b>Workshop</b><span>intapp: the business services and the message system that keeps them in sync</span></div>
+      <div class="layer"><b>Team projects</b><span>One per business area (products, orders, logistics). Each team ships its own service</span></div>
     </div>
+    <details class="glossary">
+      <summary>Words used on this page</summary>
+      <dl>
+        <div><dt>API</dt><dd>A list of requests one system can make to another, like a menu.</dd></div>
+        <div><dt>API Management (APIM)</dt><dd>The front door that checks every request before passing it on.</dd></div>
+        <div><dt>API Center</dt><dd>The catalogue of approved APIs and AI tools.</dd></div>
+        <div><dt>Service Bus</dt><dd>A post room that delivers messages between services.</dd></div>
+        <div><dt>Function App</dt><dd>A small piece of code that runs one business service.</dd></div>
+        <div><dt>Terraform</dt><dd>Blueprints written as code, so Azure is built the same way every time.</dd></div>
+        <div><dt>Pipeline</dt><dd>The automated assembly line that builds, tests and releases changes.</dd></div>
+        <div><dt>Resource group</dt><dd>A folder in Azure that holds related parts; access is given per folder.</dd></div>
+        <div><dt>Private endpoint</dt><dd>An internal-only door with no access from the internet.</dd></div>
+        <div><dt>PIM</dt><dd>Temporary admin access that a person must request and justify, and that expires.</dd></div>
+        <div><dt>MCP</dt><dd>A standard way for AI assistants to use tools such as "check stock".</dd></div>
+      </dl>
+    </details>
     <nav aria-label="Diagrams">
       <a href="#big-picture">Big picture</a>
-      <a href="#delivery">Delivery order</a>
-      <a href="#identity">Pipeline sign-in</a>
-      <a href="#governance">Governance RBAC</a>
-      <a href="#apixp">apixp</a>
-      <a href="#intapp">intapp</a>
-      <a href="#order-flow">Order end to end</a>
-      <a href="#agents">AI agents (MCP)</a>
-      <a href="#contracts">Repo contracts</a>
+      <a href="#delivery">Build order</a>
+      <a href="#identity">No passwords</a>
+      <a href="#governance">Access</a>
+      <a href="#apixp">Front door</a>
+      <a href="#intapp">Workshop</a>
+      <a href="#order-flow">One order</a>
+      <a href="#agents">AI assistants</a>
+      <a href="#contracts">How it fits</a>
     </nav>
   </header>
 
   <!-- 1 -->
   <section id="big-picture">
-    <div class="head"><span class="step">View 1</span><h2>Big picture: who owns what</h2></div>
-    <p class="oneliner">Governance sets the guardrails, the two infra repos build the landing zones, and each domain repo deploys its own code and API into them.</p>
+    <div class="head"><span class="step">View 1</span><h2>Big picture: who does what</h2></div>
+    <p class="oneliner">One team sets the rules, two areas are built from blueprints, and each business team runs its own service.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 flowchart LR
@@ -160,23 +182,23 @@ flowchart LR
   A1 <-. "VNet peering" .-> I1
 </pre></div>
       <div class="notes">
-        <h3>Talking points</h3>
+        <h3>In plain words</h3>
         <ul>
-          <li>Two subscriptions with a clear split: <b>apixp</b> exposes, <b>intapp</b> runs. The blast radius of a change stays in one place.</li>
-          <li>Each infra repo has two Terraform roots: <code>core-services</code> (network in an existing VNet) and an application root on top.</li>
-          <li>Domain teams own their repo end to end: code, OpenAPI contract, policies and MCP tools. Adding an API doesn't touch apixp-infra.</li>
-          <li>Naming is one convention everywhere: <code>prh-&lt;type&gt;-&lt;sub&gt;-&lt;env&gt;-&lt;purpose&gt;-uks-001</code>.</li>
+          <li>There are two separate areas in Azure: the <b>front door</b> (apixp), where requests come in, and the <b>workshop</b> (intapp), where the work happens. A problem in one doesn't spill into the other.</li>
+          <li>Everything is built from code "blueprints" (Terraform), so dev, test, pre-production and production all look the same.</li>
+          <li>Each business area (products, orders, logistics) has its own team project and can release without waiting for the others.</li>
+          <li>Everything is named the same way, so anyone can tell what something is and where it lives.</li>
         </ul>
-        <div class="ask"><q>Why separate repos instead of one mono-repo?</q>
-          <p>Different owners, cadence and permissions. Each repo's pipeline identity can only touch its own resource groups, so a domain team can't change the gateway and the platform team can't change domain code.</p></div>
+        <div class="ask"><q>Why not put everything in one place?</q>
+          <p>Different teams work at different speeds and need different access. Splitting keeps each team in its own lane and limits the damage of a mistake.</p></div>
       </div>
     </div>
   </section>
 
   <!-- 2 -->
   <section id="delivery">
-    <div class="head"><span class="step">View 2</span><h2>Delivery order: how the pipelines chain</h2></div>
-    <p class="oneliner">Bootstrap once, then governance, then network, then platform services, then the domains, promoted dev to prod.</p>
+    <div class="head"><span class="step">View 2</span><h2>Build order: like building a house</h2></div>
+    <p class="oneliner">We build in a fixed order: foundations first, then the rooms, then the furniture.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 flowchart TD
@@ -191,24 +213,25 @@ flowchart TD
   API --> PROM["dev → test → pre → prod&lt;br/&gt;pre and prod wait for reviewers"]
 </pre></div>
       <div class="notes">
-        <h3>Talking points</h3>
+        <h3>In plain words</h3>
         <ul>
-          <li>Bootstrap is the only manual step: it creates state storage and the identity governance runs as.</li>
-          <li>Governance writes each repo's GitHub environment variables, so nobody copies client IDs by hand.</li>
-          <li>Each infra pipeline runs <code>core-services</code> then the application root in one job, per environment.</li>
-          <li>Peering is a deliberate second pass: each side owns its half, so neither repo needs rights to create the other's VNet.</li>
-          <li>PRs plan every environment and post the plan as a comment; merging to main applies in order.</li>
+          <li><b>Once:</b> set up a safe place to store the blueprints.</li>
+          <li><b>Rules and keys:</b> governance creates the spaces and gives each team's automation its own keys.</li>
+          <li><b>Roads and walls:</b> the private network in both areas.</li>
+          <li><b>Shared services:</b> the front door and the message system.</li>
+          <li><b>Connect:</b> link the two areas privately.</li>
+          <li><b>Business services:</b> each team ships its service. Changes move dev → test → pre-production → production, and the last two need a person to approve.</li>
         </ul>
-        <div class="ask"><q>What happens if the network layer changes in the same PR as an app?</q>
-          <p>The application roots build subnet and DNS zone IDs from the shared naming module instead of reading state, so they still plan; on apply, core-services always runs first.</p></div>
+        <div class="ask"><q>What stops a bad change reaching production?</q>
+          <p>It has to pass through every earlier stage first, and pre-production and production both need a named reviewer to approve it.</p></div>
       </div>
     </div>
   </section>
 
   <!-- 3 -->
   <section id="identity">
-    <div class="head"><span class="step">View 3</span><h2>Pipeline sign-in: no secrets anywhere</h2></div>
-    <p class="oneliner">GitHub exchanges an OIDC token for a managed identity that is federated to exactly one repo and one environment.</p>
+    <div class="head"><span class="step">View 3</span><h2>Automation with no passwords</h2></div>
+    <p class="oneliner">Our automation has no stored passwords. It proves who it is each time and only gets the keys for one job.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 sequenceDiagram
@@ -224,23 +247,23 @@ sequenceDiagram
   ARM-->>GH: role assignments allowed only for delegable roles (ABAC)
 </pre></div>
       <div class="notes">
-        <h3>Talking points</h3>
+        <h3>In plain words</h3>
         <ul>
-          <li>One user-assigned identity per repo and environment, federated to that GitHub environment. Prod credentials can't be used from a dev job.</li>
-          <li>pre and prod environments can only deploy from protected branches and need reviewer approval.</li>
-          <li>Infra pipelines can grant roles, but an ABAC condition limits them to a short list of data-plane roles, such as Key Vault Secrets User and Service Bus Data Sender.</li>
-          <li>Resource providers are registered by governance, so pipelines need no subscription-level rights.</li>
+          <li>Each deployment gets a short-lived pass, valid for minutes, for one project and one environment.</li>
+          <li>A test deployment cannot use the production pass.</li>
+          <li>Even when signed in, it can only change its own areas.</li>
+          <li>It can only hand out a short, pre-approved list of permissions, never admin rights.</li>
         </ul>
-        <div class="ask"><q>Why not a service principal with a secret?</q>
-          <p>A secret can leak and has to be rotated. With federation there is nothing to store, the token lives minutes, and the trust is scoped to repo + environment.</p></div>
+        <div class="ask"><q>Why does this matter?</q>
+          <p>Leaked passwords are one of the most common ways cloud systems are breached. With nothing stored, there is nothing to leak or rotate.</p></div>
       </div>
     </div>
   </section>
 
   <!-- 4 -->
   <section id="governance">
-    <div class="head"><span class="step">View 4</span><h2>Governance: least privilege by resource group</h2></div>
-    <p class="oneliner">Every identity, human or pipeline, gets the smallest scope that lets it do its job, and humans have no standing write access.</p>
+    <div class="head"><span class="step">View 4</span><h2>Access: the minimum, and only when needed</h2></div>
+    <p class="oneliner">Everyone, people and automation, gets the minimum access they need. People get extra access only when they ask, and only for a short time.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 flowchart LR
@@ -272,15 +295,15 @@ flowchart LR
   H -- "PIM eligible" --> INR
 </pre></div>
       <div class="notes">
-        <h3>Talking points</h3>
+        <h3>In plain words</h3>
         <ul>
-          <li>Governance creates the landing RGs, so pipelines are scoped to RGs, not subscriptions, and can't create new ones.</li>
-          <li>The VNets are existing and owned by the network team; pipelines only get Network Contributor on that RG to add subnets.</li>
-          <li>A custom "VNet Peering Operator" role lets each side peer and register private endpoints in the other side's DNS zones, and nothing else.</li>
-          <li>People's access is code: change <code>access.yaml</code> in a PR, the plan shows who gains or loses access, merge to apply. Membership is authoritative.</li>
+          <li>Each team's automation can only touch its own resource groups (think: its own rooms).</li>
+          <li>The network belongs to the network team; we can only add our own sections to it.</li>
+          <li>People have no permanent admin rights. They request them when needed: multi-factor sign-in, a reason, sometimes an approval, and the access expires after a few hours.</li>
+          <li>Who has access is written in one file and changed through a reviewed request, so there is always an audit trail.</li>
         </ul>
-        <div class="ask"><q>How do you stop a pipeline from granting itself Owner?</q>
-          <p>It only has Role Based Access Control Administrator with an ABAC condition listing the role definition IDs it may assign. Any other role assignment is denied by Azure.</p></div>
+        <div class="ask"><q>How do you stop someone giving themselves admin rights?</q>
+          <p>The automation may only hand out a fixed list of low-risk permissions. Azure refuses anything else.</p></div>
       </div>
     </div>
   </section>
@@ -288,7 +311,7 @@ flowchart LR
   <!-- 5 -->
   <section id="apixp">
     <div class="head"><span class="step">View 5</span><h2>apixp: the front door</h2></div>
-    <p class="oneliner">APIM sits in its own subnet with its own route table; shared services and utilities are private and reached through private endpoints.</p>
+    <p class="oneliner">The front door checks every request, then passes it on through private, internal-only routes.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 flowchart LR
@@ -327,23 +350,23 @@ flowchart LR
   LAW -. "optional" .-> DT["Dynatrace Event Hub"]
 </pre></div>
       <div class="notes">
-        <h3>Talking points</h3>
+        <h3>In plain words</h3>
         <ul>
-          <li>Subnets are created in an explicit <code>depends_on</code> chain so operations on the shared VNet never overlap.</li>
-          <li>APIM's route table merges the shared UDR with a direct route for the APIM control plane, so forced tunnelling doesn't break the gateway.</li>
-          <li>The policy layer is platform-owned: global policy plus fragments for auth, rate limit, errors, routing and MCP guardrails.</li>
-          <li>Identities follow the slide: APIM UAMI reads Key Vault, the common-utils UAMI reads config and the routing table, a KQL identity can only read logs.</li>
+          <li><b>API Management</b> is the front door: it checks who is calling, how often, and that the request makes sense.</li>
+          <li>Secrets and settings are kept in locked stores (Key Vault, App Configuration) that only approved services can open.</li>
+          <li>None of the services behind the front door can be reached from the internet.</li>
+          <li>Monitoring watches the front door and raises an alert if it gets overloaded or starts failing.</li>
         </ul>
-        <div class="ask"><q>Why External VNet mode and not Internal?</q>
-          <p>External keeps a public gateway for partners while every backend stays private. It's one variable (<code>apim_virtual_network_type</code>) if the gateway should go fully private behind a WAF.</p></div>
+        <div class="ask"><q>Is the front door on the internet?</q>
+          <p>Yes, because partners need to reach it. Everything behind it is internal only, and one setting can make the front door private too.</p></div>
       </div>
     </div>
   </section>
 
   <!-- 6 -->
   <section id="intapp">
-    <div class="head"><span class="step">View 6</span><h2>intapp: domain services and the event backbone</h2></div>
-    <p class="oneliner">One resource group, subnet and Function App per business domain, with a shared Service Bus where each domain owns one topic.</p>
+    <div class="head"><span class="step">View 6</span><h2>intapp: the workshop</h2></div>
+    <p class="oneliner">Each business area runs its own service, and they keep each other up to date through a shared message system.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 flowchart LR
@@ -369,23 +392,24 @@ flowchart LR
   PE -. "app · storage · KV · SB endpoints" .-> DNS
 </pre></div>
       <div class="notes">
-        <h3>Talking points</h3>
+        <h3>In plain words</h3>
         <ul>
-          <li>Private by default: Function Apps, storage, Key Vault and Service Bus have public access off. APIM reaches apps over peering and private DNS.</li>
-          <li>No connection strings: storage, Service Bus and Key Vault all use the app's managed identity.</li>
-          <li>The backbone topology is one YAML file. Terraform turns it into topics, filtered subscriptions and exactly the RBAC each publisher and consumer needs.</li>
-          <li>intapp owns the central private DNS zones, and apixp's private endpoints register in them too.</li>
+          <li>Three services: <b>Products</b>, <b>Orders</b> and <b>Logistics</b>, each in its own space.</li>
+          <li>They don't call each other directly. They post messages such as "order accepted" to a shared post room (Service Bus).</li>
+          <li>Each area can only post its own kind of message and only read the messages meant for it.</li>
+          <li>There are no passwords in the code: services prove who they are with identities managed by Azure.</li>
+          <li>Everything is internal only.</li>
         </ul>
-        <div class="ask"><q>Why Service Bus and not Event Grid for this?</q>
-          <p>We need ordering per order or ISBN (sessions), duplicate detection, dead-lettering and replay. Event Grid is kept as an optional add-on for push-style notifications.</p></div>
+        <div class="ask"><q>Why messages instead of calling each other directly?</q>
+          <p>If one service is busy or down, its messages wait safely instead of failing. Teams can change their service without breaking the others.</p></div>
       </div>
     </div>
   </section>
 
   <!-- 7 -->
   <section id="order-flow">
-    <div class="head"><span class="step">View 7</span><h2>One order, end to end</h2></div>
-    <p class="oneliner">A retailer order moves through three domains without any of them calling each other directly.</p>
+    <div class="head"><span class="step">View 7</span><h2>One order, start to finish</h2></div>
+    <p class="oneliner">A retailer's order passes through three teams without any of them waiting for or calling each other.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 sequenceDiagram
@@ -408,24 +432,25 @@ sequenceDiagram
   SB->>OUT: ShipmentDispatched via edi-despatch-advice
 </pre></div>
       <div class="notes">
-        <h3>Talking points</h3>
+        <h3>In plain words</h3>
         <ul>
-          <li>S1 naming: <code>&lt;domain&gt;.events</code> topics, <code>&lt;domain&gt;.commands</code> queues, subscription named for the consumer.</li>
-          <li>S2 ownership: only the owning domain can send to its topic; each consumer can read only its own subscription.</li>
-          <li>S3 envelope: CloudEvents-style body plus an <code>eventType</code> property that subscription filters match on.</li>
-          <li>S4 reliability: transactional outbox, duplicate detection on event ID, sessions for ordering, idempotent consumers, dead-letter then alert.</li>
-          <li>S5 contracts: AsyncAPI and JSON Schema in Git, additive changes only.</li>
+          <li><b>1–2:</b> the retailer's order arrives and the Orders service picks it up.</li>
+          <li><b>3–4:</b> Orders saves it and announces "order accepted".</li>
+          <li><b>5–6:</b> Logistics hears that and reserves the stock.</li>
+          <li><b>7–8:</b> when the warehouse ships, Logistics announces "shipped".</li>
+          <li><b>9–10:</b> Orders marks the order as dispatched, and the retailer gets a despatch note.</li>
+          <li>Ground rules: only the owner announces its own events, every message uses one standard format, duplicates are ignored, and failures are retried and then set aside for a person to check.</li>
         </ul>
-        <div class="ask"><q>What if Service Bus is down when the order is saved?</q>
-          <p>The event is already in the outbox with the order. The dispatcher retries in order on its next run, so nothing is lost and nothing is published for a change that didn't happen.</p></div>
+        <div class="ask"><q>What if the message system is down?</q>
+          <p>The order and its announcement are saved together. The announcement goes out as soon as the system is back, so nothing is lost.</p></div>
       </div>
     </div>
   </section>
 
   <!-- 8 -->
   <section id="agents">
-    <div class="head"><span class="step">View 8</span><h2>AI agents use the same governed APIs</h2></div>
-    <p class="oneliner">APIM exposes read-only API operations as MCP tools, so an agent acts as the user through the same checkpoint as every other client.</p>
+    <div class="head"><span class="step">View 8</span><h2>AI assistants follow the same rules</h2></div>
+    <p class="oneliner">AI assistants go through the same front door and the same checks as everyone else, and can only do what the person asking could do.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 sequenceDiagram
@@ -445,24 +470,24 @@ sequenceDiagram
   Note over APIC: only APIs and MCP servers registered here are approved, G1 G6 G7
 </pre></div>
       <div class="notes">
-        <h3>Talking points</h3>
+        <h3>In plain words</h3>
         <ul>
-          <li><b>G1</b> only MCP servers in the <code>agents</code> product and registered in API Center; unknown agent apps get 403.</li>
-          <li><b>G2</b> the agent passes the user's own token, and the API checks audience and <code>Logistics.Read</code> scope.</li>
-          <li><b>G3</b> tools are generated from operations marked in the OpenAPI file; a write tool fails the deploy without explicit approval.</li>
-          <li><b>G4–G5</b> inputs are validated against the contract; user, agent, tool and outcome are logged to App Insights.</li>
-          <li><b>G6–G7</b> tools are versioned with the API; confidential data needs approval before any tool is exposed.</li>
+          <li>A sales rep asks an AI assistant: "What's the stock for this book?"</li>
+          <li>The assistant uses the rep's own login, so it can't see more than the rep can.</li>
+          <li>Only approved assistants and approved tools are allowed. They are listed in a catalogue (API Center).</li>
+          <li>Tools start read-only. Anything that changes data needs explicit human approval first.</li>
+          <li>Every request is logged: who asked, which assistant, which tool, and what happened.</li>
         </ul>
-        <div class="ask"><q>Why not let the agent call SAP or the database directly?</q>
-          <p>That's a new point-to-point coupling with no audit or scopes. Going through the domain API reuses its contract, auth, rate limits and logging, and the agent can't do more than the user could.</p></div>
+        <div class="ask"><q>Why not let the AI connect straight to SAP or the database?</q>
+          <p>That would skip every safety check. Going through the front door means the same rules, limits and audit trail as any other user.</p></div>
       </div>
     </div>
   </section>
 
   <!-- 9 -->
   <section id="contracts">
-    <div class="head"><span class="step">View 9</span><h2>How the repos talk to each other</h2></div>
-    <p class="oneliner">Repos never call each other; they share outputs, a naming convention and GitHub variables.</p>
+    <div class="head"><span class="step">View 9</span><h2>How the projects fit together</h2></div>
+    <p class="oneliner">The projects don't depend on each other's internals. They share a few agreed facts, like a contract.</p>
     <div class="plate">
       <div class="diagram"><pre class="mermaid">
 flowchart LR
@@ -475,19 +500,19 @@ flowchart LR
   OAS["openapi.yaml"] --> APIT["API · MCP tools · API Center definition"]
 </pre></div>
       <div class="notes">
-        <h3>Talking points</h3>
+        <h3>In plain words</h3>
         <ul>
-          <li>Terraform outputs are treated as a contract: the API repos read only a few named outputs, so the infra can change underneath them.</li>
-          <li>Two files drive most of the platform: <code>event-domains.yaml</code> for messaging and each repo's <code>openapi.yaml</code> for APIs and tools.</li>
-          <li>Policy values per environment come from GitHub variables written by governance and are replaced at deploy time; secrets stay in Key Vault.</li>
+          <li>Each infrastructure project publishes a short list of facts (for example, "the front door is called X") that the others read.</li>
+          <li>One naming pattern means projects can find each other's parts without asking.</li>
+          <li>Two simple files drive most changes: one lists the business messages, one describes each API.</li>
         </ul>
-        <div class="ask"><q>How do you add a new domain?</q>
-          <p>Add a subnet and a workload entry in intapp-infra, the domain to governance, its topic to <code>event-domains.yaml</code>, then copy an API repo. No change to apixp-infra.</p></div>
+        <div class="ask"><q>How do you add a new business area?</q>
+          <p>Add it to a few settings files and copy an existing team project. The front door doesn't need to change.</p></div>
       </div>
     </div>
   </section>
 
-  <footer>Names follow the platform convention (for example <code>prh-rg-intapp-dev-orders-uks-001</code>). Diagrams describe the repos as built; MCP servers use APIM's preview API.</footer>
+  <footer>The diagrams use the real names from the build, for example <code>prh-rg-intapp-dev-orders-uks-001</code>. The bullets explain the same thing in everyday words.</footer>
 </div>
 <script type="module">
   import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
